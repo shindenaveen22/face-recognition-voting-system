@@ -1,0 +1,154 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="login-container fade-in">
+    <div style="text-align: center;">
+        <h2>Facial Verification</h2>
+        <p style="color: var(--text-secondary);">Position your face in the center of the frame to continue.</p>
+    </div>
+
+    <div class="glass-card" style="padding: 1rem;">
+        <div id="video-wrapper">
+            <video id="webcam-video" autoplay playsinline></video>
+            <div class="camera-overlay"></div>
+        </div>
+    </div>
+
+    <div id="status-card" class="glass-card" style="width: 100%; max-width: 640px; padding: 1.5rem; text-align: center;">
+        <div id="voter-input-section">
+            <input type="text" id="voter-id" placeholder="Enter Your National Voter ID" 
+                   style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 1rem; border-radius: 10px; color: white; margin-bottom: 1rem;">
+            <button id="start-verification" class="btn-primary" style="width: 100%;">Verify Identity</button>
+        </div>
+        <div id="verification-status" style="display: none;">
+            <p id="status-text">Scanning face...</p>
+            <div id="loader" style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 1rem; overflow: hidden;">
+                <div id="loader-progress" style="width: 0%; height: 100%; background: var(--accent-cyan); transition: width 0.3s;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<canvas id="capture-canvas" width="640" height="480" style="display: none;"></canvas>
+
+<script>
+    const video = document.getElementById('webcam-video');
+    const startBtn = document.getElementById('start-verification');
+    const voterIdInput = document.getElementById('voter-id');
+    const statusSection = document.getElementById('verification-status');
+    const inputSection = document.getElementById('voter-input-section');
+    const statusText = document.getElementById('status-text');
+    const loaderProgress = document.getElementById('loader-progress');
+    const canvas = document.getElementById('capture-canvas');
+
+    // Access Webcam
+    async function setupCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Camera Access Denied',
+                text: err.message,
+                background: '#1a1b26',
+                color: '#fff'
+            });
+        }
+    }
+
+    setupCamera();
+
+    startBtn.onclick = async () => {
+        const voterId = voterIdInput.value.trim();
+        if (!voterId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'ID Required',
+                text: 'Please enter a valid Voter ID to continue.',
+                background: '#1a1b26',
+                color: '#fff',
+                confirmButtonColor: '#00f2ff'
+            });
+            return;
+        }
+
+        inputSection.style.display = 'none';
+        statusSection.style.display = 'block';
+        
+        let attempts = 0;
+        const maxAttempts = 5;
+
+        const verify = async () => {
+            attempts++;
+            statusText.innerText = `Analyzing Biometrics (Attempt ${attempts}/${maxAttempts})...`;
+            loaderProgress.style.width = `${(attempts/maxAttempts) * 100}%`;
+
+            // Capture Frame
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, 640, 480);
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            try {
+                const response = await fetch('/verify_face', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData, voter_id: voterId })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    // Identity OK, now do Liveness Check
+                    statusText.innerText = "Identity Verified! STEP 2: LIVENESS CHECK. Please TILT YOUR HEAD to the side...";
+                    statusText.style.color = "var(--accent-cyan)";
+                    
+                    // Wait 2 seconds for user to react
+                    setTimeout(async () => {
+                        // Capture again for liveness
+                        context.drawImage(video, 0, 0, 640, 480);
+                        const livenessImage = canvas.toDataURL('image/jpeg');
+                        
+                        const livenessResponse = await fetch('/verify_liveness', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ image: livenessImage, direction: 'tilt' })
+                        });
+                        const livenessResult = await livenessResponse.json();
+                        
+                        if (livenessResult.success) {
+                            statusText.innerText = "Liveness Verified! Access Granted.";
+                            statusText.style.color = "#00ff00";
+                            loaderProgress.style.width = "100%";
+                            setTimeout(() => window.location.href = '/vote', 1500);
+                        } else {
+                            statusText.innerText = "Liveness Failed: " + livenessResult.message;
+                            statusText.style.color = "#ff0000";
+                            setTimeout(() => resetLogin(), 3000);
+                        }
+                    }, 3000);
+
+                } else {
+                    if (attempts < maxAttempts) {
+                        setTimeout(verify, 1000);
+                    } else {
+                        statusText.innerText = "Access Denied: " + result.message;
+                        statusText.style.color = "#ff0000";
+                        setTimeout(() => resetLogin(), 3000);
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        function resetLogin() {
+            inputSection.style.display = 'block';
+            statusSection.style.display = 'none';
+            attempts = 0;
+            loaderProgress.style.width = "0%";
+        }
+
+        verify();
+    };
+</script>
+{% endblock %}

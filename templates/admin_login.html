@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="login-container fade-in" style="margin-top: 5rem;">
+    <div class="glass-card" style="width: 100%; max-width: 400px; text-align: center;">
+        <h2 class="gradient-text" style="margin-bottom: 1rem;">Admin Access</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Please enter the secure PIN to view election results.</p>
+        
+        <input type="password" id="admin-pin" placeholder="Enter Admin PIN" 
+               style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 1rem; border-radius: 10px; color: white; margin-bottom: 1.5rem; text-align: center; letter-spacing: 5px; font-size: 1.2rem;">
+        
+        <button id="login-btn" class="btn-primary" style="width: 100%;">Verify & Access</button>
+        <div id="error-msg" style="color: #ff0000; margin-top: 1rem; display: none;"></div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('login-btn').onclick = async () => {
+        const pin = document.getElementById('admin-pin').value;
+        const errorMsg = document.getElementById('error-msg');
+        
+        const response = await fetch('/verify_admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin: pin })
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            window.location.href = '/dashboard';
+        } else {
+            errorMsg.innerText = result.message;
+            errorMsg.style.display = 'block';
+            document.getElementById('admin-pin').value = '';
+        }
+    };
+</script>
+{% endblock %}

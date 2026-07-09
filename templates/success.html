@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="hero fade-in">
+    <div class="glass-card" style="max-width: 600px; margin: 0 auto; padding: 4rem 2rem;">
+        <div style="font-size: 4rem; color: #00ff00; margin-bottom: 2rem;">✓</div>
+        <h1 class="gradient-text">Vote Successfully Recorded</h1>
+        
+        <!-- Digital Receipt -->
+        <div class="glass-card" style="background: rgba(0, 242, 255, 0.05); border-color: var(--accent-cyan); margin-bottom: 2rem; text-align: left;">
+            <h4 style="color: var(--accent-cyan); margin-bottom: 1rem;">DIGITAL VOTING RECEIPT</h4>
+            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">VOTER ID: <span style="color: #fff;">SESSION_ACTIVE</span></div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary);">BLOCKCHAIN STATUS: <span style="color: #00ff00;">CONFIRMED & IMMUTABLE</span></div>
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0, 242, 255, 0.2); font-family: monospace; font-size: 0.7rem; color: var(--accent-cyan);">
+                TRANSACTION_ID: {{ range(100000, 999999) | random }}{{ range(1000, 9999) | random }}
+            </div>
+        </div>
+
+        <p style="color: var(--text-secondary); margin-bottom: 3rem;">
+            Your vote has been encrypted and added to the secure blockchain ledger. 
+            Redirecting to the login portal for the next voter...
+        </p>
+        <a href="/login" class="btn-primary" style="padding: 1.2rem 3.5rem;">Next Voter</a>
+    </div>
+</div>
+
+<script>
+    window.onload = () => {
+        // Voice removed
+    };
+    // Automatically redirect to login page after 5 seconds
+    setTimeout(() => {
+        window.location.href = '/login';
+    }, 5000);
+</script>
+{% endblock %}

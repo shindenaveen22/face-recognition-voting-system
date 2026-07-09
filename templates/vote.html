@@ -1,0 +1,134 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
+        <div>
+            <h2>Secure Ballot</h2>
+            <p style="color: var(--text-secondary);">Logged in as Voter ID: <span style="color: var(--accent-cyan);">{{ voter_id }}</span></p>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <div class="glass-card" style="padding: 0.5rem 1rem; border-color: var(--accent-cyan);">
+                <span id="session-timer" style="color: var(--accent-cyan); font-size: 0.8rem; font-family: monospace;">SESSION EXPIRES: 20s</span>
+            </div>
+            <div class="glass-card" style="padding: 0.5rem 1rem; border-color: #00ff00;">
+                <span style="color: #00ff00; font-size: 0.8rem;">● SECURE SESSION ACTIVE</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="candidate-grid">
+        {% for candidate in candidates %}
+        <div class="glass-card candidate-card">
+            <img src="{{ candidate.image }}" alt="{{ candidate.name }}" class="candidate-img">
+            <h3>{{ candidate.name }}</h3>
+            <p style="color: var(--accent-cyan); font-size: 0.9rem; margin-bottom: 1.5rem;">{{ candidate.party }}</p>
+            <button class="btn-primary cast-vote-btn" data-id="{{ candidate.id }}" data-name="{{ candidate.name }}" style="width: 100%;">Cast Vote</button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+<script>
+    const btns = document.querySelectorAll('.cast-vote-btn');
+    let selectedCandidate = null;
+
+    // AI Session Heartbeat Logic
+    let timeLeft = 60;
+    const timerElement = document.getElementById('session-timer');
+    
+    const countdown = setInterval(() => {
+        timeLeft--;
+        timerElement.innerText = `SESSION EXPIRES: ${timeLeft}s`;
+        
+        if (timeLeft <= 5) {
+            timerElement.style.color = "#ff0000";
+            timerElement.parentElement.style.borderColor = "#ff0000";
+        }
+        
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            Swal.fire({
+                icon: 'error',
+                title: 'Session Expired',
+                text: 'For your security, the voting session has timed out. Please re-authenticate.',
+                background: '#1a1b26',
+                color: '#fff',
+                confirmButtonColor: '#ff00ff'
+            }).then(() => {
+                window.location.href = '/login';
+            });
+        }
+    }, 1000);
+
+    btns.forEach(btn => {
+        btn.onclick = () => {
+            selectedCandidate = { id: btn.dataset.id, name: btn.dataset.name };
+            
+            Swal.fire({
+                title: 'Confirm Your Vote',
+                html: `You are voting for <b style="color:var(--accent-cyan)">${selectedCandidate.name}</b>.<br>This action is irreversible and secured by Blockchain.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Encrypt & Sign',
+                cancelButtonText: 'Cancel',
+                background: '#1a1b26',
+                color: '#fff',
+                confirmButtonColor: '#00f2ff',
+                cancelButtonColor: '#ff00ff'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    castVote();
+                }
+            });
+        };
+    });
+
+    async function castVote() {
+        Swal.fire({
+            title: 'Encrypting Vote...',
+            text: 'Securing transaction on blockchain ledger',
+            allowOutsideClick: false,
+            background: '#1a1b26',
+            color: '#fff',
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        try {
+            const response = await fetch('/cast_vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ candidate_id: selectedCandidate.id })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Vote Secured!',
+                    text: result.message,
+                    background: '#1a1b26',
+                    color: '#fff',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.href = '/success';
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Voting Failed',
+                    text: result.message,
+                    background: '#1a1b26',
+                    color: '#fff'
+                });
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+</script>
+{% endblock %}

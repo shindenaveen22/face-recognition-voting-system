@@ -1,0 +1,190 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1>Election <span class="gradient-text">Live Dashboard</span></h1>
+            <p style="color: var(--text-secondary);">Real-time audit trail and consensus results.</p>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <div class="glass-card" style="padding: 1rem; text-align: right;">
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">BLOCKS IN CHAIN</div>
+                <div style="font-size: 1.5rem; font-weight: 800; color: var(--accent-cyan);">{{ chain|length }}</div>
+            </div>
+            <a href="/download_report" class="glass-card" style="border-color: var(--accent-magenta); color: var(--accent-magenta); cursor: pointer; padding: 1rem; text-decoration: none; display: flex; align-items: center;">
+                DOWNLOAD REPORT
+            </a>
+            <button id="add-cand-btn" class="glass-card" style="border-color: var(--accent-cyan); color: var(--accent-cyan); cursor: pointer; padding: 1rem;">
+                ADD CANDIDATE
+            </button>
+            <button id="reset-btn" class="glass-card" style="border-color: #ff0000; color: #ff0000; cursor: pointer; padding: 1rem;">
+                RESET ELECTION
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <!-- Results Chart -->
+        <div class="glass-card">
+            <h3>Live Vote Distribution</h3>
+            <div style="height: 300px; margin-top: 2rem;">
+                <canvas id="resultsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Blockchain Ledger -->
+        <div class="glass-card">
+            <h3>Blockchain Ledger</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">Immutable transaction history</p>
+            <div class="ledger-container">
+                {% for block in chain|reverse %}
+                <div class="block-card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="color: var(--accent-magenta); font-weight: 700;">BLOCK #{{ block.index }}</span>
+                        <span style="color: var(--text-secondary); font-size: 0.7rem;">{{ block.timestamp|round|int }}</span>
+                    </div>
+                    <div style="margin-bottom: 0.5rem;">
+                        <span style="color: var(--text-secondary);">Voter:</span> {{ block.voter_id[:8] }}...
+                    </div>
+                    <div style="margin-bottom: 0.5rem;">
+                        <span style="color: var(--text-secondary);">Candidate:</span> <span style="color: var(--accent-cyan);">{{ block.candidate }}</span>
+                    </div>
+                    <div style="font-size: 0.7rem;">
+                        <span style="color: var(--text-secondary);">Hash:</span> 
+                        <div class="block-hash">{{ block.hash }}</div>
+                    </div>
+                    {% if block.index > 0 %}
+                    <div style="font-size: 0.7rem; margin-top: 0.3rem;">
+                        <span style="color: var(--text-secondary);">Prev:</span> 
+                        <div class="block-hash" style="color: #555;">{{ block.previous_hash }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('resultsChart').getContext('2d');
+    const resultsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ chart_labels|tojson }},
+            datasets: [{
+                label: 'Votes',
+                data: {{ chart_data|tojson }},
+                backgroundColor: [
+                    'rgba(0, 242, 255, 0.5)',
+                    'rgba(255, 0, 255, 0.5)',
+                    'rgba(255, 255, 255, 0.5)'
+                ],
+                borderColor: [
+                    '#00f2ff',
+                    '#ff00ff',
+                    '#ffffff'
+                ],
+                borderWidth: 2,
+                borderRadius: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#a0a0a0' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#fff' }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Auto-refresh stats every 10 seconds
+    setInterval(async () => {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        resultsChart.data.datasets[0].data = data.values;
+        resultsChart.update();
+    }, 10000);
+
+    // Add Candidate Logic
+    document.getElementById('add-cand-btn').onclick = () => {
+        Swal.fire({
+            title: 'Add New Candidate',
+            html: `
+                <input id="swal-input1" class="swal2-input" placeholder="Candidate Full Name" style="background: #111; color: #fff;">
+                <input id="swal-input2" class="swal2-input" placeholder="Party Name (Optional)" style="background: #111; color: #fff;">
+            `,
+            background: '#1a1b26',
+            color: '#fff',
+            showCancelButton: true,
+            confirmButtonText: 'Add to Ballot',
+            preConfirm: () => {
+                return [
+                    document.getElementById('swal-input1').value,
+                    document.getElementById('swal-input2').value
+                ]
+            }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                const [name, party] = result.value;
+                if (!name) return;
+
+                const response = await fetch('/add_candidate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, party: party })
+                });
+                const res = await response.json();
+                if (res.success) {
+                    Swal.fire({ icon: 'success', title: 'Added!', text: res.message, background: '#1a1b26', color: '#fff' })
+                    .then(() => location.reload());
+                }
+            }
+        });
+    };
+
+    // Reset Election Functionality
+    document.getElementById('reset-btn').onclick = async () => {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This will permanently erase all blockchain data and voter history!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ff0000',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, ERASE EVERYTHING!',
+            background: '#1a1b26',
+            color: '#fff'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                const response = await fetch('/reset_election', { method: 'POST' });
+                const res = await response.json();
+                if (res.success) {
+                    Swal.fire({
+                        title: 'Erased!',
+                        text: res.message,
+                        icon: 'success',
+                        background: '#1a1b26',
+                        color: '#fff'
+                    }).then(() => {
+                        window.location.href = '/';
+                    });
+                }
+            }
+        });
+    };
+
+</script>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="hero fade-in">
+    <h1>Next-Generation <br> <span class="gradient-text">Secure E-Voting</span></h1>
+    <p>A decentralized, tamper-proof voting platform verified by facial recognition.</p>
+    <div style="display: flex; justify-content: center; gap: 2rem;">
+        <div class="glass-card" style="width: 250px;">
+            <h3 style="color: var(--accent-cyan);">Secure</h3>
+            <p style="font-size: 0.9rem; margin-top: 0.5rem;">Biometric verification via real-time computer vision.</p>
+        </div>
+        <div class="glass-card" style="width: 250px;">
+            <h3 style="color: var(--accent-magenta);">Immutable</h3>
+            <p style="font-size: 0.9rem; margin-top: 0.5rem;">Votes are encrypted and stored in a private blockchain.</p>
+        </div>
+        <div class="glass-card" style="width: 250px;">
+            <h3 style="color: #fff;">Transparent</h3>
+            <p style="font-size: 0.9rem; margin-top: 0.5rem;">Real-time results via dynamic audit dashboard.</p>
+        </div>
+    </div>
+    <div style="margin-top: 4rem; display: flex; justify-content: center; gap: 1.5rem;">
+        <a href="/login" class="btn-primary" style="padding: 1.5rem 3rem; font-size: 1.1rem;">Enter Voting Portal</a>
+        <a href="/dashboard" class="glass-card" style="padding: 1.5rem 3rem; font-size: 1.1rem; text-decoration: none; color: white; display: flex; align-items: center;">View Results</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.onload = () => {
+        // Voice removed
+    };
+</script>
+{% endblock %}
